@@ -342,26 +342,4 @@ fun CreateNewTaskScreen(
         }
     }
 }
-@Preview(showBackground = true)
-@Composable
-fun PreviewNewTaskLight() {
-    MaterialTheme {
-        CreateNewTaskScreen(
-            onCancel = TODO(),
-            onTaskCreated = TODO(),
-            viewModel = TODO(),
-        )
-    }
-}
 
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable
-fun PreviewNewTaskDark() {
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        CreateNewTaskScreen(
-            onCancel = TODO(),
-            onTaskCreated = TODO(),
-            viewModel = TODO(),
-        )
-    }
-}

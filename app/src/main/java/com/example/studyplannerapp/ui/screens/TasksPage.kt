@@ -332,30 +332,4 @@ fun EmptyStateView(borderColor: Color, mutedText: Color, cardBg: Color) {
 
 // --- Previews ---
 
-@Preview(name = "Light Mode", showBackground = true)
-@Composable
-fun PreviewStudyHubLight() {
-    // Replace 'MaterialTheme' with 'StudyplannerappTheme' if you want your custom typography
-    MaterialTheme {
-        StudyHubScreen(
-            onEditTask = TODO(),
-            viewModel = TODO()
-        )
-    }
-}
 
-@Preview(
-    name = "Dark Mode",
-    showBackground = true,
-    uiMode = Configuration.UI_MODE_NIGHT_YES
-)
-@Composable
-fun PreviewStudyHubDark() {
-    // We force a dark color scheme here so the preview simulates dark mode correctly
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        StudyHubScreen(
-            onEditTask = TODO(),
-            viewModel = TODO()
-        )
-    }
-}
