@@ -1,17 +1,13 @@
 package com.example.studyplannerapp.ui.screens
 
 import android.content.res.Configuration
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,206 +20,199 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.Alignment.Companion.CenterVertically
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
 import android.app.DatePickerDialog
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Check
+import com.example.studyplannerapp.data.local.entity.Task
+import com.example.studyplannerapp.viewmodel.TaskViewModel
+import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun CreateNewTaskScreen(
-    onCreate: (String, String, String, String) -> Unit = { _, _, _, _ -> },
-    onCancel: () -> Unit = {}
+    taskId: String? = null,
+    onCancel: () -> Unit = {},
+    onTaskCreated: () -> Unit = {},  // Optional callback when task is successfully created
+    viewModel: TaskViewModel,
+
 ) {
-    val isDark = isSystemInDarkTheme()
-    val borderColor = if (isDark) Color(0xFF555555) else Color(0xFFDDDDDD)
-    val errorColor = Color(0xFFD32F2F)
-    val mutedText = if (isDark) Color(0xFFAAAAAA) else Color(0xFF666666)
-    val cardBg = if (isDark) Color(0xFF2A2A2A) else Color.White
-    val backgroundColor = if (isDark) Color(0xFF121212) else Color(0xFFF8F9FA)
+    val taskIdInt = taskId?.toIntOrNull()
+    val allTasks by viewModel.allTasks.collectAsState(initial = emptyList())
+    val existingTask = allTasks.find { it.id == taskIdInt }
+
 
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var subject by remember { mutableStateOf("Math") }
-    var expanded by remember { mutableStateOf(false) }
+    var subject by remember { mutableStateOf("") }
     var deadline by remember { mutableStateOf("") }
 
-    // Validation states
     var showTitleError by remember { mutableStateOf(false) }
+    var showSubjectError by remember { mutableStateOf(false) }
     var showDeadlineError by remember { mutableStateOf(false) }
 
-    val subjectList = listOf("Math", "Science", "English", "History", "Other")
     val context = LocalContext.current
-
-    // Date picker logic
     val calendar = Calendar.getInstance()
-    val datePicker = DatePickerDialog(
-        context,
-        { _, year, month, dayOfMonth ->
-            deadline = "${month + 1}/$dayOfMonth/$year"
-            showDeadlineError = false // Clear error when date is selected
-        },
-        calendar.get(Calendar.YEAR),
-        calendar.get(Calendar.MONTH),
-        calendar.get(Calendar.DAY_OF_MONTH)
-    )
 
-    fun validateAndCreate() {
-        var isValid = true
-
-        // Validate title
-        if (title.isBlank()) {
-            showTitleError = true
-            isValid = false
-        } else {
-            showTitleError = false
-        }
-
-        // Validate deadline
-        if (deadline.isBlank()) {
-            showDeadlineError = true
-            isValid = false
-        } else {
-            showDeadlineError = false
-        }
-
-        // If valid, create task
-        if (isValid) {
-            onCreate(title, description, subject, deadline)
+    val datePicker = remember {
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                deadline = "${month + 1}/$dayOfMonth/$year"
+                showDeadlineError = false
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+    LaunchedEffect(existingTask) {
+        existingTask?.let {
+            title = it.title
+            description = it.description
+            subject = it.subject
+            deadline = SimpleDateFormat("M/d/yyyy", Locale.US).format(Date(it.deadline))
         }
     }
 
+    fun saveTask() {
+        showTitleError = title.isBlank()
+        showSubjectError = subject.isBlank()
+        showDeadlineError = deadline.isBlank()
+
+        if (showTitleError || showSubjectError || showDeadlineError) return
+
+        val formatter = SimpleDateFormat("M/d/yyyy", Locale.US)
+        val deadlineTimestamp = formatter.parse(deadline)?.time ?: System.currentTimeMillis()
+
+        if (existingTask != null) {
+            // update
+            val updatedTask = existingTask.copy(
+                title = title.trim(),
+                description = description.trim(),
+                subject = subject.trim(),
+                deadline = deadlineTimestamp
+            )
+            viewModel.updateTask(updatedTask)
+        } else {
+            // create new
+            val newTask = Task(
+                title = title.trim(),
+                description = description.trim(),
+                subject = subject.trim(),
+                deadline = deadlineTimestamp,
+                isFinished = false,
+                logTime = 0L
+            )
+            viewModel.insertTask(newTask)
+        }
+
+        onTaskCreated()
+    }
+
     Scaffold(
-        containerColor = backgroundColor,
-        contentColor = MaterialTheme.colorScheme.onBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(padding)
         ) {
+            // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                verticalAlignment = CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     "Create new task",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 24.sp
+                    fontSize = 24.sp,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
 
-            // Main Form
+            // Main Form Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = cardBg
-                ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    //Title
+                    // === Title Field ===
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            "Title ",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp
-                        )
+                        Row {
+                            Text("Title", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(" *", color = Color(0xFFD32F2F))
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .border(
                                     1.dp,
-                                    if (showTitleError) errorColor else borderColor,
+                                    if (showTitleError) Color(0xFFD32F2F) else MaterialTheme.colorScheme.outline,
                                     RoundedCornerShape(12.dp)
                                 )
-                                .background(cardBg)
+                                .background(MaterialTheme.colorScheme.surface)
                                 .padding(horizontal = 16.dp, vertical = 14.dp)
                         ) {
                             BasicTextField(
                                 value = title,
                                 onValueChange = {
                                     title = it
-                                    if (it.isNotBlank()) {
-                                        showTitleError = false
-                                    }
+                                    if (it.isNotBlank()) showTitleError = false
                                 },
-                                textStyle = TextStyle(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 16.sp
-                                ),
+                                textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp),
+                                singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                                 decorationBox = { innerTextField ->
                                     if (title.isEmpty()) {
                                         Text(
                                             "e.g., Complete Chapter 5 homework",
-                                            color = mutedText,
-                                            fontSize = 16.sp
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                         )
                                     }
                                     innerTextField()
-                                },
-                                singleLine = true
+                                }
                             )
                         }
-
-                        // Title error message
                         if (showTitleError) {
-                            Text(
-                                "Title is required",
-                                color = errorColor,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(start = 4.dp)
-                            )
+                            Text("Title is required", color = Color(0xFFD32F2F), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
                         }
                     }
 
-                    //Description
+                    // === Description ===
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "Description",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp
-                        )
+                        Text("Description", fontSize = 14.sp)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-                                .background(cardBg)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface)
                                 .padding(16.dp)
                         ) {
                             BasicTextField(
                                 value = description,
                                 onValueChange = { description = it },
-                                textStyle = TextStyle(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 16.sp
-                                ),
-                                modifier = Modifier.fillMaxSize(),
+                                textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp),
                                 decorationBox = { innerTextField ->
                                     if (description.isEmpty()) {
                                         Text(
                                             "Add more details about this task...",
-                                            color = mutedText,
-                                            fontSize = 16.sp
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                         )
                                     }
                                     innerTextField()
@@ -232,296 +221,136 @@ fun CreateNewTaskScreen(
                         }
                     }
 
-                    //Subject
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "Subject ",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = CenterVertically
-                        ) {
-
+                    // === Subject & Deadline Row ===
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Subject
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row {
+                                Text("Subject", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(" *", color = Color(0xFFD32F2F))
+                            }
                             Box(
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(cardBg)
-                                    .clickable { expanded = true }
-                                    .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                contentAlignment = Alignment.CenterStart
+                                    .border(
+                                        1.dp,
+                                        if (showSubjectError) Color(0xFFD32F2F) else MaterialTheme.colorScheme.outline,
+                                        RoundedCornerShape(12.dp)
+                                    )
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                            ) {
+                                BasicTextField(
+                                    value = subject,
+                                    onValueChange = {
+                                        subject = it
+                                        if (it.isNotBlank()) showSubjectError = false
+                                    },
+                                    textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField ->
+                                        if (subject.isEmpty()) {
+                                            Text("e.g., Math, Physics...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                        }
+                                        innerTextField()
+                                    }
+                                )
+                            }
+                            if (showSubjectError) {
+                                Text("Subject is required", color = Color(0xFFD32F2F), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+                            }
+                        }
+
+                        // Deadline
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row {
+                                Text("Deadline", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(" *", color = Color(0xFFD32F2F))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(
+                                        1.dp,
+                                        if (showDeadlineError) Color(0xFFD32F2F) else MaterialTheme.colorScheme.outline,
+                                        RoundedCornerShape(12.dp)
+                                    )
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable { datePicker.show() }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp)
                             ) {
                                 Row(
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Text(
-                                        subject,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontSize = 16.sp
-                                    )
                                     Icon(
-                                        Icons.Default.ArrowDropDown,
+                                        Icons.Outlined.DateRange,
                                         contentDescription = null,
-                                        tint = mutedText
+                                        tint = if (showDeadlineError) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                     )
-                                }
-                            }
-
-                            //+
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-                                    .background(cardBg)
-                                    .clickable { /* Add new subject logic */ },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = "Add subject",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
-
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.background(cardBg)
-                        ) {
-                            subjectList.forEach { subjectItem ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            subjectItem,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 16.sp
-                                        )
-                                    },
-                                    onClick = {
-                                        subject = subjectItem
-                                        expanded = false
-                                    },
-                                    modifier = Modifier.background(cardBg)
-                                )
-                            }
-                        }
-                    }
-
-                    //Deadline
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            "Deadline ",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .border(
-                                    1.dp,
-                                    if (showDeadlineError) errorColor else borderColor,
-                                    RoundedCornerShape(12.dp)
-                                )
-                                .background(cardBg)
-                                .clickable { datePicker.show() }
-                                .padding(horizontal = 16.dp, vertical = 14.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    Icons.Outlined.DateRange,
-                                    contentDescription = null,
-                                    tint = if (showDeadlineError) errorColor else mutedText,
-                                    modifier = Modifier.size(20.dp)
-                                )
-
-                                if (deadline.isEmpty()) {
                                     Text(
-                                        "mm/dd/yyyy",
-                                        color = if (showDeadlineError) errorColor else mutedText,
-                                        fontSize = 16.sp
-                                    )
-                                } else {
-                                    Text(
-                                        deadline,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        text = if (deadline.isEmpty()) "mm/dd/yyyy" else deadline,
+                                        color = if (deadline.isEmpty()) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface,
                                         fontSize = 16.sp
                                     )
                                 }
                             }
-                        }
-
-                        // Deadline error message
-                        if (showDeadlineError) {
-                            Text(
-                                "Deadline is required",
-                                color = errorColor,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(start = 4.dp)
-                            )
+                            if (showDeadlineError) {
+                                Text("Deadline is required", color = Color(0xFFD32F2F), fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
 
-            //Button
+            // Buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Create Task Button
                 Button(
-                    onClick = {
-                        validateAndCreate()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50),
-                        contentColor = Color.White
-                    ),
+                    onClick = { saveTask() },
                     modifier = Modifier
                         .weight(1f)
                         .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 2.dp,
-                        pressedElevation = 0.dp
-                    )
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
                 ) {
-                    Icon(
-                        Icons.Default.Menu,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Create Task",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Create task", fontWeight = FontWeight.Medium)
                 }
 
-                // Cancel Button
                 OutlinedButton(
                     onClick = onCancel,
-                    border = BorderStroke(1.dp, borderColor),
                     modifier = Modifier
                         .weight(1f)
                         .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    )
+                    shape = RoundedCornerShape(28.dp)
                 ) {
-                    Text(
-                        "Cancel",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text("Cancel", fontWeight = FontWeight.Medium)
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            //Tips
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0x1A4CAF50) else Color(0xFFE8F5E9)
-                ),
-                border = BorderStroke(1.dp, Color(0xFF4CAF50).copy(alpha = if (isDark) 0.2f else 0.3f))
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF4CAF50)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "💡",
-                                fontSize = 18.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                        Text(
-                            "Tips",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2E7D32),
-                            fontSize = 18.sp
-                        )
-                    }
-
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(start = 44.dp)
-                    ) {
-                        Text(
-                            "• Use descriptive titles to easily identify tasks",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            "• Set realistic deadlines to stay organized",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            "• Log study sessions to track your progress",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            "• Click the + button to add custom subjects",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(32.dp))
         }
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun PreviewNewTaskLight() {
     MaterialTheme {
-        CreateNewTaskScreen()
+        CreateNewTaskScreen(
+            onCancel = TODO(),
+            onTaskCreated = TODO(),
+            viewModel = TODO(),
+        )
     }
 }
 
@@ -529,6 +358,10 @@ fun PreviewNewTaskLight() {
 @Composable
 fun PreviewNewTaskDark() {
     MaterialTheme(colorScheme = darkColorScheme()) {
-        CreateNewTaskScreen()
+        CreateNewTaskScreen(
+            onCancel = TODO(),
+            onTaskCreated = TODO(),
+            viewModel = TODO(),
+        )
     }
 }

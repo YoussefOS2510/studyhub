@@ -1,4 +1,4 @@
-package com.example.studyplannerapp.data
+package com.example.studyplannerapp.data.prefrences
 
 // In a new file, e.g., ThemePreferenceManager.kt
 

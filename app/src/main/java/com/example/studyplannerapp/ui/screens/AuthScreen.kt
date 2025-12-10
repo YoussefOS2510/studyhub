@@ -1,8 +1,6 @@
 // Add this import for Surface
-import android.R.attr.contentDescription
 import androidx.compose.material3.Surface
 // Add this import for the Google Icon
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,15 +18,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImagePainter.State.Empty.painter
 
 @Composable
 fun GoogleLoginScreen(
-    onGoogleLoginClick: () -> Unit
+    onGoogleLoginClick: () -> Unit,
+    modifier: Modifier
 ) {
     // The main screen column for the title/icon and the card
     Column(

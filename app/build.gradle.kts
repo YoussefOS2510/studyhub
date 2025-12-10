@@ -59,6 +59,9 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.ui.graphics)
 
     // Testing
     testImplementation(libs.junit)
@@ -76,7 +79,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.android.gms:play-services-auth:20.4.1")
-
+    implementation( "com.google.firebase:firebase-firestore-ktx")
     // Lifecycle Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.0")

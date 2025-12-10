@@ -1,0 +1,16 @@
+package com.example.studyplannerapp.data.local.entity
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "tasks")
+data class Task(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val title: String,
+    val description: String,
+    val subject: String,
+    val deadline: Long, // Unix timestamp in ms
+    val isFinished: Boolean = false,
+    val logTime: Long = 0L ,// Total minutes logged
+    val userId: String = ""
+)
