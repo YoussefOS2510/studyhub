@@ -1,15 +1,12 @@
 package com.example.studyplannerapp.ui.screens
 
-import StudyplannerappTheme
-import androidx.compose.ui.tooling.preview.Preview
-import android.content.res.Configuration
+import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -21,34 +18,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.paint
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag // Required for testing
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// 1. IMPORT YOUR COLOR VARIABLES HERE
-// If your Color.kt is in a different package, update this line.
-// Example: import com.example.studyplannerapp.ui.theme.*
-import com.example.studyplannerapp.ui.theme.* // --- Local Feature Colors ---
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextDecoration
-
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.studyplannerapp.data.local.entity.Task
-import com.example.studyplannerapp.ui.theme.*
-import com.example.studyplannerapp.viewmodel.TaskViewModel
-import com.example.studyplannerapp.viewmodel.TaskViewModelFactory
+import com.example.studyplannerapp.ui.theme.* import com.example.studyplannerapp.viewmodel.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.graphics.Color
 
-// Your custom green palette
+// Your custom green palette (Ensure these exist in your theme or keep them here)
 val StudyGreenLevel0 = Color(0xFF161B22)
 val StudyGreenLevel1 = Color(0xFF0E4429)
 val StudyGreenLevel2 = Color(0xFF006D32)
@@ -61,15 +43,40 @@ val DarkMutedForeground = Color(0xFFCCCCCC)
 val LightBorder = Color(0xFF717378)
 val LightMutedForeground = Color(0xFF666666)
 
+// ---------------------------------------------------------
+// 1. The Stateful Component (Connects to ViewModel)
+// ---------------------------------------------------------
 @Composable
-
 fun StudyHubScreen(
     onEditTask: (Task) -> Unit = {},
     viewModel: TaskViewModel
 ) {
     val allTasks by viewModel.allTasks.collectAsState(initial = emptyList())
 
-    // Search & Filter states
+    // Pass the raw data to the stateless content.
+    // The Content component will handle the visual filtering/searching.
+    StudyHubScreenContent(
+        allTasks = allTasks,
+        onEditTask = onEditTask,
+        onDeleteTask = { viewModel.deleteTask(it) },
+        onToggleTask = { viewModel.updateTask(it.copy(isFinished = !it.isFinished)) },
+        onLogTime = { t, m -> viewModel.updateTask(t.copy(logTime = t.logTime + m)) }
+    )
+}
+
+// ---------------------------------------------------------
+// 2. The Stateless Component (THIS IS WHAT YOU TEST)
+// ---------------------------------------------------------
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+fun StudyHubScreenContent(
+    allTasks: List<Task>,
+    onEditTask: (Task) -> Unit,
+    onDeleteTask: (Task) -> Unit,
+    onToggleTask: (Task) -> Unit,
+    onLogTime: (Task, Int) -> Unit
+) {
+    // Search & Filter states (Local UI state is fine here for testing interactions)
     var searchQuery by remember { mutableStateOf("") }
     var filterType by remember { mutableStateOf("All") } // All, Open, Closed
 
@@ -81,8 +88,8 @@ fun StudyHubScreen(
 
     val dateFormat = remember { SimpleDateFormat("MMM dd", Locale.getDefault()) }
 
-    // 🔍 APPLY SEARCH + FILTER
-    val tasks = allTasks
+    // 🔍 APPLY SEARCH + FILTER LOGIC (Inside the UI component so we can test it)
+    val displayedTasks = allTasks
         .filter { task ->
             when (filterType) {
                 "Open" -> !task.isFinished
@@ -96,14 +103,13 @@ fun StudyHubScreen(
                     task.description.contains(searchQuery, ignoreCase = true)
         }
 
-    Scaffold(
-
-    ) { padding ->
+    Scaffold { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .testTag("task_list"), // TAG FOR TESTING
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
@@ -119,23 +125,23 @@ fun StudyHubScreen(
                 )
             }
 
-            if (tasks.isEmpty()) {
-                item { EmptyStateView(borderColor, mutedTextColor, cardBgColor) }
+            if (displayedTasks.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.testTag("empty_state")) { // TAG FOR TESTING
+                        EmptyStateView(borderColor, mutedTextColor, cardBgColor)
+                    }
+                }
             } else {
-                items(tasks, key = { it.id }) { task ->
+                items(displayedTasks, key = { it.id }) { task ->
                     TaskItemCard(
                         task = task,
                         borderColor = borderColor,
                         mutedText = mutedTextColor,
                         cardBg = cardBgColor,
                         dateFormat = dateFormat,
-                        onTaskToggle = {
-                            viewModel.updateTask(task.copy(isFinished = !task.isFinished))
-                        },
-                        onLogTime = { t, minutes ->
-                            viewModel.updateTask(t.copy(logTime = t.logTime + minutes))
-                        },
-                        onDelete = { viewModel.deleteTask(task) },
+                        onTaskToggle = onToggleTask,
+                        onLogTime = onLogTime,
+                        onDelete = onDeleteTask,
                         onEdit = onEditTask
                     )
                 }
@@ -144,10 +150,9 @@ fun StudyHubScreen(
     }
 }
 
-
-// --- Sub-Composables (Updated for Real Task Entity) ---
-
-
+// ---------------------------------------------------------
+// 3. Sub-Composables
+// ---------------------------------------------------------
 
 @Composable
 fun FilterSection(
@@ -161,7 +166,7 @@ fun FilterSection(
 ) {
     Column {
 
-        // 🔥 FILTER BUTTONS WITH MOVING GREEN HIGHLIGHT
+        // 🔥 FILTER BUTTONS
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -175,7 +180,8 @@ fun FilterSection(
                         contentColor = if (isSelected) Color.White else mutedText
                     ),
                     border = BorderStroke(1.dp, borderColor),
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.testTag("Filter_$label") // TAG: Filter_All, Filter_Open, etc.
                 ) {
                     Text(label, fontSize = 14.sp)
                 }
@@ -199,6 +205,7 @@ fun FilterSection(
                 .fillMaxWidth()
                 .height(50.dp)
                 .background(cardBg)
+                .testTag("search_bar") // TAG FOR TESTING
         )
     }
 }
@@ -211,10 +218,10 @@ fun TaskItemCard(
     mutedText: Color,
     cardBg: Color,
     dateFormat: SimpleDateFormat,
-    onTaskToggle: (Task) -> Unit,           // ← Takes Task
-    onLogTime: (Task, Int) -> Unit,         // ← Takes Task + minutes
-    onDelete: (Task) -> Unit,               // ← Takes Task
-    onEdit: (Task) -> Unit                   // ← Takes Task
+    onTaskToggle: (Task) -> Unit,
+    onLogTime: (Task, Int) -> Unit,
+    onDelete: (Task) -> Unit,
+    onEdit: (Task) -> Unit
 ) {
     var showLogInput by remember { mutableStateOf(false) }
     var minutesText by remember { mutableStateOf("") }
@@ -232,8 +239,9 @@ fun TaskItemCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
                     checked = task.isFinished,
-                    onCheckedChange = {onTaskToggle(task) },
-                    colors = CheckboxDefaults.colors(checkedColor = StudyGreenLevel4)
+                    onCheckedChange = { onTaskToggle(task) },
+                    colors = CheckboxDefaults.colors(checkedColor = StudyGreenLevel4),
+                    modifier = Modifier.testTag("task_checkbox") // TAG FOR TESTING
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -296,10 +304,16 @@ fun TaskItemCard(
                 }
 
                 Row {
-                    IconButton(onClick = { onEdit(task) }) {
+                    IconButton(
+                        onClick = { onEdit(task) },
+                        modifier = Modifier.testTag("edit_button") // TAG FOR TESTING
+                    ) {
                         Icon(Icons.Outlined.Edit, null, tint = mutedText)
                     }
-                    IconButton(onClick = { onDelete(task) }) {
+                    IconButton(
+                        onClick = { onDelete(task) },
+                        modifier = Modifier.testTag("delete_button") // TAG FOR TESTING
+                    ) {
                         Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error)
                     }
                 }
@@ -320,16 +334,10 @@ fun EmptyStateView(borderColor: Color, mutedText: Color, cardBg: Color) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-           // Icon(Icons.Default.LibraryBooks, null, modifier = Modifier.size(48.dp), tint = mutedText.copy(0.6f))
+            // Icon(Icons.Default.LibraryBooks, null, modifier = Modifier.size(48.dp), tint = mutedText.copy(0.6f))
             Spacer(Modifier.height(16.dp))
             Text("No tasks yet", fontWeight = FontWeight.Medium, fontSize = 18.sp)
             Text("Tap + to create your first task", color = mutedText)
         }
     }
 }
-
-
-
-// --- Previews ---
-
-
