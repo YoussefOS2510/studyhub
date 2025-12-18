@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.studyplannerapp"
+    namespace = "com.example.personalplanner"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.studyplannerapp"
+        applicationId = "com.example.personalplanner"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -107,4 +107,8 @@ dependencies {
 
     //UI
     implementation("androidx.compose.material3:material3:1.1.1")
+    implementation(libs.androidx.compose.material.icons.extended)
+
+    // Gson
+    implementation(libs.gson)
 }

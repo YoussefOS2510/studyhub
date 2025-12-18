@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:517306402238:android:dfed7f0ef0787f5a40a5ef",
+        "mobilesdk_app_id": "1:517306402238:android:aa3e74ccaf52b43840a5ef",
         "android_client_info": {
-          "package_name": "com.example.personalplanner"
+          "package_name": "com.example.studyplannerapp"
         }
       },
       "oauth_client": [
